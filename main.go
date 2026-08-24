@@ -79,6 +79,10 @@ Two causes look identical in the UI, so the tool tells them apart:
                                     group, so rebasing onto the base changes
                                     nothing; wait for the entries ahead to land
 
+Both panes list each pull request's labels under it. Repositories use labels to
+steer CI, so a 'skip-something' on the entry ahead of you tells you what it is
+not running.
+
 On a pull request that is not queued yet, the tool names any queued pull request
 it shares changed files with. Treat that as a hint only: touching the same file
 is not a conflict, and sharing none does not rule one out, because a merge group
@@ -348,6 +352,21 @@ func queueSubline(e queueSlot) string {
 		parts = append(parts, "estimated merge in "+d.Round(time.Second).String())
 	}
 	return strings.Join(parts, " • ")
+}
+
+// labelLine renders a pull request's labels, or "" when it has none. Every
+// label is shown rather than a configured subset: a repo can use them to skip
+// parts of CI, and which ones matter is not something the tool can know.
+func labelLine(p *pullRequest) string {
+	names := p.Labels.names()
+	if len(names) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(names))
+	for _, n := range names {
+		parts = append(parts, "["+n+"]")
+	}
+	return strings.Join(parts, " ")
 }
 
 func joinPRs(numbers []int) string {
@@ -764,6 +783,9 @@ var (
 	styleSelected = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
 	// Your own entries stand out in a queue that is mostly other people's.
 	styleOwn = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2"))
+	// Labels are neither status nor metadata, so they get their own colour
+	// rather than sinking into the dim sublines around them.
+	styleLabel = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 )
 
 func (s status) style() lipgloss.Style {
@@ -952,6 +974,9 @@ func (m model) queuePane(w int) string {
 		for _, line := range wrap(queueSubline(e), w-5, 2) {
 			b.WriteString(styleDim.Render("     "+line) + "\n")
 		}
+		for _, line := range wrap(labelLine(pr), w-5, 2) {
+			b.WriteString(styleLabel.Render("     "+line) + "\n")
+		}
 	}
 	b.WriteString("\n" + styleOwn.Render("*") + styleDim.Render(truncate(" yours", w)))
 	return b.String()
@@ -992,6 +1017,9 @@ func (m model) minePane(w int) string {
 		b.WriteString("     " + st.style().Render(truncate(st.headline, w-5)) + "\n")
 		if st.detail != "" {
 			b.WriteString(styleDim.Render(truncate("     "+st.detail, w)) + "\n")
+		}
+		for _, line := range wrap(labelLine(pr), w-5, 2) {
+			b.WriteString(styleLabel.Render("     "+line) + "\n")
 		}
 	}
 

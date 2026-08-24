@@ -23,6 +23,7 @@ const prFields = `
   author{ login __typename }
   mergeQueueEntry{ state position estimatedTimeToMerge }
   files(first:100){ totalCount nodes{ path } }
+  labels(first:20){ nodes{ name } }
   commits(last:1){ nodes{ commit{ statusCheckRollup{ state } } } }`
 
 // queueQuery lists what is in the queue for a base branch. Merge queue entries
@@ -95,6 +96,23 @@ func (f fileList) paths() []string {
 // overlap result unreliable.
 func (f fileList) truncated() bool { return f.TotalCount > len(f.Nodes) }
 
+// labelList is the PR's labels. They carry meaning the queue does not: a repo
+// can use them to skip parts of CI, so which ones are set changes what a queued
+// entry will actually run.
+type labelList struct {
+	Nodes []struct {
+		Name string `json:"name"`
+	} `json:"nodes"`
+}
+
+func (l labelList) names() []string {
+	out := make([]string, 0, len(l.Nodes))
+	for _, n := range l.Nodes {
+		out = append(out, n.Name)
+	}
+	return out
+}
+
 type queueEntry struct {
 	State                string `json:"state"`
 	Position             int    `json:"position"`
@@ -123,6 +141,7 @@ type pullRequest struct {
 	Author         author      `json:"author"`
 	QueueEntry     *queueEntry `json:"mergeQueueEntry"`
 	Files          fileList    `json:"files"`
+	Labels         labelList   `json:"labels"`
 	Commits        struct {
 		Nodes []struct {
 			Commit struct {

@@ -313,7 +313,7 @@ func TestFetchQueueRequestsTheBranch(t *testing.T) {
 		t.Errorf("argv should carry the branch: %s", got)
 	}
 	// The entry state and mergeable fields are what the whole tool reasons from.
-	for _, field := range []string{"mergeQueue", "mergeQueueEntry", "mergeable", "statusCheckRollup", "files"} {
+	for _, field := range []string{"mergeQueue", "mergeQueueEntry", "mergeable", "statusCheckRollup", "files", "labels"} {
 		if !strings.Contains(got, field) {
 			t.Errorf("query does not request %q", field)
 		}
@@ -475,6 +475,18 @@ func TestInQueue(t *testing.T) {
 	}
 	if !decode(t, `{"mergeQueueEntry":{"state":"QUEUED","position":1}}`).inQueue() {
 		t.Error("a PR with an entry must report as queued")
+	}
+}
+
+func TestLabelNames(t *testing.T) {
+	pr := decode(t, `{"labels":{"nodes":[{"name":"skip-e2e"},{"name":"area/auth"}]}}`)
+	if got := strings.Join(pr.Labels.names(), ","); got != "skip-e2e,area/auth" {
+		t.Errorf("names() = %q", got)
+	}
+	// Order matters: it is GitHub's, and reordering would make the line jump
+	// between polls.
+	if got := decode(t, `{}`).Labels.names(); len(got) != 0 {
+		t.Errorf("an unlabelled PR has no names, got %v", got)
 	}
 }
 
