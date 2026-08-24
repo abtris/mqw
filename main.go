@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/spinner"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/spinner"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 const helpText = `mqw — a merge queue dashboard for your own pull requests.
@@ -163,7 +163,7 @@ func main() {
 	}
 
 	m := newModel(s)
-	if _, err := tea.NewProgram(m, tea.WithAltScreen()).Run(); err != nil {
+	if _, err := tea.NewProgram(m).Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -637,7 +637,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m.handleKey(msg)
 
 	case tickMsg:
@@ -678,7 +678,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q", "ctrl+c", "esc":
 		m.quitting = true
@@ -865,9 +865,13 @@ func truncate(s string, w int) string {
 	return string([]rune(s)[:w-1]) + "…"
 }
 
-func (m model) View() string {
+func (m model) View() tea.View {
+	v := tea.NewView("")
+	// The alternate screen is a property of the view in v2, not a program
+	// option, so it has to be set on every frame.
+	v.AltScreen = true
 	if m.quitting {
-		return ""
+		return v
 	}
 
 	header := styleTitle.Render(fmt.Sprintf("%s/%s", m.owner, m.name)) +
@@ -913,7 +917,8 @@ func (m model) View() string {
 	b.WriteString("\n" + m.spinner.View() + styleDim.Render(fmt.Sprintf(
 		"tab pane · ↑↓ select · f filter · enter enqueue · d dequeue · r poll · q quit  (%d polls, every %s)",
 		m.polls, m.interval)))
-	return b.String()
+	v.SetContent(b.String())
+	return v
 }
 
 func (m model) queuePane(w int) string {

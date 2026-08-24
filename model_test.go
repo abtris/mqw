@@ -6,7 +6,8 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestParseRepo(t *testing.T) {
@@ -96,19 +97,27 @@ func loaded(t *testing.T, bodies []string, slots []queueSlot) model {
 	return m
 }
 
-func key(s string) tea.KeyMsg {
+func key(s string) tea.KeyPressMsg {
 	switch s {
 	case "enter":
-		return tea.KeyMsg{Type: tea.KeyEnter}
+		return tea.KeyPressMsg{Code: tea.KeyEnter}
 	case "tab":
-		return tea.KeyMsg{Type: tea.KeyTab}
+		return tea.KeyPressMsg{Code: tea.KeyTab}
 	case "up":
-		return tea.KeyMsg{Type: tea.KeyUp}
+		return tea.KeyPressMsg{Code: tea.KeyUp}
 	case "down":
-		return tea.KeyMsg{Type: tea.KeyDown}
+		return tea.KeyPressMsg{Code: tea.KeyDown}
 	}
-	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
+	// A printable key carries both its code and the text it produced; String()
+	// reads Text, which is what handleKey switches on.
+	return tea.KeyPressMsg{Code: []rune(s)[0], Text: s}
 }
+
+// viewOf renders the model as plain text. In bubbletea v2 View returns a
+// tea.View rather than a string, and lipgloss v2 no longer strips colour when
+// the output is not a terminal, so the escape codes are removed here: without
+// that, styling splits a string like "* yours" and the assertions miss it.
+func viewOf(m model) string { return ansi.Strip(m.View().Content) }
 
 func TestNewModelDefaults(t *testing.T) {
 	m := testModel()
@@ -139,7 +148,7 @@ func TestZeroWindowSizeIsIgnored(t *testing.T) {
 	if m.width != before {
 		t.Errorf("width = %d, want the default %d kept", m.width, before)
 	}
-	if !strings.Contains(m.View(), "merge queue") {
+	if !strings.Contains(viewOf(m), "merge queue") {
 		t.Error("the panes must still render after a zero-size report")
 	}
 }
@@ -180,7 +189,7 @@ func TestPollErrorKeepsPolling(t *testing.T) {
 	if m.quitting {
 		t.Error("a failed poll must not quit")
 	}
-	if !strings.Contains(m.View(), "Could not resolve") {
+	if !strings.Contains(viewOf(m), "Could not resolve") {
 		t.Error("the failure should be visible in the view")
 	}
 }
@@ -722,7 +731,7 @@ func TestLogIsBounded(t *testing.T) {
 }
 
 func TestViewBeforeFirstPoll(t *testing.T) {
-	out := testModel().View()
+	out := viewOf(testModel())
 	if !strings.Contains(out, "loading") {
 		t.Errorf("both panes should say they are loading:\n%s", out)
 	}
@@ -741,7 +750,7 @@ func TestViewRendersBothPanes(t *testing.T) {
 	})
 	m.width = 200
 
-	out := m.View()
+	out := viewOf(m)
 	for _, want := range []string{
 		"merge queue (2)",
 		"pull requests: mine (2)",
@@ -765,7 +774,7 @@ func TestViewMarksOwnQueueEntries(t *testing.T) {
 	})
 	m.width = 200
 
-	out := m.View()
+	out := viewOf(m)
 	if !strings.Contains(out, "* yours") {
 		t.Errorf("the legend should explain the marker:\n%s", out)
 	}
@@ -794,7 +803,7 @@ func TestViewShowsLabelsInBothPanes(t *testing.T) {
 	m := loaded(t, []string{readyPR}, []queueSlot{mustSlot(t, 1, "AWAITING_CHECKS", labelled)})
 	m.width = 200
 
-	out := m.View()
+	out := viewOf(m)
 	if !strings.Contains(out, "[skip-vcluster]") {
 		t.Errorf("a queued entry's labels should show:\n%s", out)
 	}
@@ -805,8 +814,8 @@ func TestViewShowsLabelsInBothPanes(t *testing.T) {
 
 func TestViewShowsEmptyQueue(t *testing.T) {
 	m := loaded(t, []string{readyPR}, nil)
-	if !strings.Contains(m.View(), "empty") {
-		t.Errorf("an empty queue should say so:\n%s", m.View())
+	if !strings.Contains(viewOf(m), "empty") {
+		t.Errorf("an empty queue should say so:\n%s", viewOf(m))
 	}
 }
 
@@ -814,12 +823,12 @@ func TestViewShowsAuthenticatedLogin(t *testing.T) {
 	// A wrong-account session otherwise presents as an empty PR pane, so the
 	// header names who gh is acting as.
 	m := loaded(t, []string{readyPR}, nil)
-	if !strings.Contains(m.View(), "@"+testViewer) {
-		t.Errorf("header should name the viewer:\n%s", m.View())
+	if !strings.Contains(viewOf(m), "@"+testViewer) {
+		t.Errorf("header should name the viewer:\n%s", viewOf(m))
 	}
 
 	// Before the first poll there is no login to show, and it must not render "@".
-	if strings.Contains(testModel().View(), "·  @") {
+	if strings.Contains(viewOf(testModel()), "·  @") {
 		t.Error("an unknown viewer must not render an empty handle")
 	}
 }
@@ -827,14 +836,14 @@ func TestViewShowsAuthenticatedLogin(t *testing.T) {
 func TestHeaderMarksAPinnedAccount(t *testing.T) {
 	// Unpinned: the login shows, with nothing implying it was chosen.
 	m := loaded(t, []string{readyPR}, nil)
-	if out := m.View(); strings.Contains(out, "(pinned)") {
+	if out := viewOf(m); strings.Contains(out, "(pinned)") {
 		t.Errorf("an unpinned session must not claim to be pinned:\n%s", out)
 	}
 
 	// Pinned: say so, since "the active account happens to be right" and "this
 	// session is nailed to an account" behave differently under gh auth switch.
 	m.account = "alice"
-	out := m.View()
+	out := viewOf(m)
 	if !strings.Contains(out, "@"+testViewer) || !strings.Contains(out, "(pinned)") {
 		t.Errorf("a pinned session should be marked:\n%s", out)
 	}
@@ -877,7 +886,7 @@ func TestViewShowsWrongAccountHint(t *testing.T) {
 	}})
 	m.width = 200
 
-	out := m.View()
+	out := viewOf(m)
 	if !strings.Contains(out, "cannot read queue") {
 		t.Errorf("the failure should be visible:\n%s", out)
 	}
@@ -895,7 +904,7 @@ func TestViewShowsQueueReadFailure(t *testing.T) {
 	}})
 	m.width = 200
 
-	out := m.View()
+	out := viewOf(m)
 	if !strings.Contains(out, "cannot read queue") {
 		t.Errorf("a queue failure should be visible:\n%s", out)
 	}
@@ -906,14 +915,14 @@ func TestViewShowsQueueReadFailure(t *testing.T) {
 
 func TestViewShowsNoOpenPRs(t *testing.T) {
 	m := loaded(t, nil, nil)
-	if !strings.Contains(m.View(), "none open") {
-		t.Errorf("an empty PR list should say so:\n%s", m.View())
+	if !strings.Contains(viewOf(m), "none open") {
+		t.Errorf("an empty PR list should say so:\n%s", viewOf(m))
 	}
 }
 
 func TestViewIsEmptyOnQuit(t *testing.T) {
 	m, _ := send(t, testModel(), key("q"))
-	if m.View() != "" {
+	if viewOf(m) != "" {
 		t.Error("the alt screen should be left clean on quit")
 	}
 }
@@ -1010,7 +1019,7 @@ func TestViewRendersQueueSubline(t *testing.T) {
 	// Wide enough that the whole subline fits; truncation is tested separately.
 	m.width = 320
 
-	out := m.View()
+	out := viewOf(m)
 	for _, want := range []string{
 		"opened by @deps-bot",
 		"enqueued by @carol",
@@ -1078,7 +1087,7 @@ func TestQueueSublineWrapsRatherThanTruncating(t *testing.T) {
 	// A width where the subline needs two lines but fits in them.
 	m.width = 160
 
-	out := m.View()
+	out := viewOf(m)
 	if !strings.Contains(out, "opened by @deps-bot") {
 		t.Errorf("first part of the subline missing:\n%s", out)
 	}
@@ -1106,7 +1115,7 @@ func TestQueueSublineElidesWhenTooNarrow(t *testing.T) {
 	}})
 	m.width = 120
 
-	out := m.View()
+	out := viewOf(m)
 	if !strings.Contains(out, "…") {
 		t.Errorf("a cut subline must be elided rather than just ending:\n%s", out)
 	}

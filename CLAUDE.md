@@ -148,3 +148,9 @@ The panes only render correctly with a real terminal size. Under `script -q
 `WindowSizeMsg`; without that guard the layout collapses. When capturing output,
 `\r` → `\n` conversion double-spaces every row — that is a capture artifact, not
 a rendering bug.
+
+Since lipgloss v2, `Render` emits ANSI whether or not the output is a terminal;
+v1 stripped colour when it was not. So captured output carries escape codes, and
+a plain substring search for something styled — `* yours`, whose marker and text
+carry different styles — will not find it. `viewOf` in `model_test.go` strips
+them for exactly that reason.
