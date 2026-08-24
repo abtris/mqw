@@ -102,6 +102,11 @@ same way.
 
 Your own entries in the queue pane are bold green and marked `*`.
 
+Both panes list each pull request's labels under it, in magenta. Labels are worth
+seeing next to the queue because repositories use them to steer CI — a
+`skip-something` label means the entry ahead of you is not running the job you
+expect it to.
+
 ## Why rebasing often does not help
 
 An unmergeable queue entry has two quite different causes, and GitHub shows them

@@ -777,6 +777,32 @@ func TestViewMarksOwnQueueEntries(t *testing.T) {
 	}
 }
 
+func TestLabelLine(t *testing.T) {
+	if got := labelLine(decode(t, readyPR)); got != "[skip-e2e] [area/auth]" {
+		t.Errorf("labelLine() = %q", got)
+	}
+	// An unlabelled PR must render nothing at all, not an empty bracket pair or
+	// a blank row eating a line of the pane.
+	if got := labelLine(decode(t, reviewPR)); got != "" {
+		t.Errorf("labelLine() on an unlabelled PR = %q, want empty", got)
+	}
+}
+
+func TestViewShowsLabelsInBothPanes(t *testing.T) {
+	labelled := `{"id":"PR_q","number":3421,"title":"raise test timeouts",
+	"labels":{"nodes":[{"name":"skip-vcluster"}]}}`
+	m := loaded(t, []string{readyPR}, []queueSlot{mustSlot(t, 1, "AWAITING_CHECKS", labelled)})
+	m.width = 200
+
+	out := m.View()
+	if !strings.Contains(out, "[skip-vcluster]") {
+		t.Errorf("a queued entry's labels should show:\n%s", out)
+	}
+	if !strings.Contains(out, "[skip-e2e] [area/auth]") {
+		t.Errorf("a listed pull request's labels should show:\n%s", out)
+	}
+}
+
 func TestViewShowsEmptyQueue(t *testing.T) {
 	m := loaded(t, []string{readyPR}, nil)
 	if !strings.Contains(m.View(), "empty") {

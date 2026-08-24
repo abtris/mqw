@@ -31,6 +31,7 @@ const (
 	"state":"OPEN","mergeable":"MERGEABLE","reviewDecision":"APPROVED","baseRefName":"main",
 	"headRefName":"topic",` + mineAuthor + `,
 	"files":{"totalCount":1,"nodes":[{"path":"auth/client.go"}]},
+	"labels":{"nodes":[{"name":"skip-e2e"},{"name":"area/auth"}]},
 	"commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"SUCCESS"}}}]}}`
 
 	draftPR = `{"id":"PR_draft","number":3418,"title":"chore(build): use hardened base images",
