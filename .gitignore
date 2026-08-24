@@ -1,0 +1,5 @@
+/mqw
+/dist/
+
+# Per-repository config: personal, and may name a gh account.
+.mqw.toml

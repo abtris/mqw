@@ -1,0 +1,104 @@
+version: 2
+
+project_name: mqw
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: mqw
+    main: .
+    binary: mqw
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.CommitDate}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: mqw
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  # GitHub's own generated notes: pull request titles with links and contributors,
+  # rather than raw commit subjects with full SHAs and author emails. Categories
+  # are configured in .github/release.yml. Filters and groups do not apply here —
+  # GitHub decides the content.
+  use: github-native
+
+# Homebrew wants pre-built binaries shipped as casks; formulae are expected to
+# build from source, which is why the older `brews` key is deprecated.
+homebrew_casks:
+  - name: mqw
+    binaries: [mqw]
+    repository:
+      owner: abtris
+      name: homebrew-tap
+      branch: main
+      # A repo-scoped PAT: the default GITHUB_TOKEN cannot push to another repo.
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Casks
+    homepage: https://github.com/abtris/mqw
+    description: Terminal dashboard for moving your pull requests through a GitHub merge queue
+    license: mit
+    # gh does all the GitHub talking, so it is a hard runtime requirement. It is a
+    # formula in homebrew-core, not a cask; declaring it as a cask fails to resolve.
+    dependencies:
+      - formula: gh
+    # Clear the quarantine flag, or macOS Gatekeeper blocks the unsigned binary.
+    hooks:
+      post:
+        install: |
+          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/mqw"]
+          end
+    uninstall:
+      delete:
+        - "#{staged_path}/mqw"
+    caveats: |
+      mqw needs the gh CLI authenticated:
+        gh auth login
+
+      Optionally set a default repo so plain `mqw` just works:
+        mkdir -p ~/.config/mqw && mqw --print-config > ~/.config/mqw/config.toml
+
+release:
+  name_template: "v{{ .Version }}"
+  header: |
+    A terminal dashboard for moving your own pull requests through a GitHub merge
+    queue: the queue for a base branch on the left, your open pull requests on the
+    right, `enter` to enqueue and `d` to dequeue.
+  footer: |
+    ## Install
+
+    ```
+    brew install abtris/tap/mqw
+    ```
+
+    Or grab a binary below. Both need the `gh` CLI authenticated.
+
+    ## Getting started
+
+    ```
+    mqw                      # help, until a repo is configured
+    mqw --print-config       # a config to copy to ~/.config/mqw/config.toml
+    mqw -repo owner/name     # or point it at a repo directly
+    ```
+
+    Set `account` in the config to pin a session to one `gh` account, so switching
+    accounts in another terminal cannot break a running dashboard.
