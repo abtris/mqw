@@ -9,6 +9,43 @@ The case it exists for: a pull request sits in the queue marked unmergeable,
 waits an hour to reach the front, gets thrown out, and only then do you find out.
 Worse, the obvious fix is often the wrong one — see below.
 
+```
+acme/service  queue for main  ·  @alice (pinned)
+
+╭─────────────────────────────────────────────────────────────────╮ ╭─────────────────────────────────────────────────────────────────╮
+│ merge queue (4)                                                 │ │ pull requests: mine (5)                                         │
+│                                                                 │ │ f cycles: mine · bots · all                                     │
+│    1  #3425  queued                                             │ │                                                                 │
+│      chore(infra): bump agent version                           │ │ › #3424  refactor(auth): drop legacy fallback                   │
+│      opened by @bob                                             │ │      unmergeable inside the merge group                         │
+│      [area/infra]                                               │ │      position 2, eta 55m18s · clean against main, so rebasing … │
+│   *2  #3424  unmergeable                                        │ │      [area/auth]                                                │
+│      refactor(auth): drop legacy fallback                       │ │   #3426  feat(api): paginate list endpoints                     │
+│      opened by @alice                                           │ │      unmergeable, cause not yet known                           │
+│      [area/auth]                                                │ │      position 4, eta 21m0s · GitHub has not computed mergeabil… │
+│    3  #3421  awaiting_checks                                    │ │   #3427  fix(store): close rows on the error path               │
+│      chore(deps): bump toolchain image                          │ │      ready to enqueue                                           │
+│      opened by @deps-bot                                        │ │      shares files with #3425, #3424 in the queue                │
+│      [dependencies]                                             │ │      [area/store] [skip-e2e]                                    │
+│   *4  #3426  unmergeable                                        │ │   #3423  fix(api): resolve location at create time              │
+│      feat(api): paginate list endpoints                         │ │      review required                                            │
+│      opened by @alice                                           │ │   #3418  chore(build): use hardened base images                 │
+│                                                                 │ │      draft                                                      │
+│ * yours                                                         │ │                                                                 │
+╰─────────────────────────────────────────────────────────────────╯ ╰─────────────────────────────────────────────────────────────────╯
+
+  12:52:49  #3424 unmergeable inside the merge group
+  12:52:49  #3426 unmergeable, cause not yet known
+  12:52:49  #3427 ready to enqueue
+  12:52:49  #3423 review required
+  12:52:49  #3418 draft
+
+⣾ tab pane · ↑↓ select · f filter · enter enqueue · d dequeue · r poll · q quit  (1 polls, every 1m0s)
+```
+
+The code block drops the colour: your own queue entries are green, anything
+needing attention red, ready green, labels magenta.
+
 ## Install
 
 ```
@@ -102,6 +139,47 @@ same way.
 
 Your own entries in the queue pane are bold green and marked `*`.
 
+`f` cycles the right pane between three filters. `mine` is what the shots above
+show; the other two name the author, since `enter` and `d` only ever act on your
+own pull requests:
+
+```
+pull requests: bots (1)
+f cycles: mine · bots · all
+
+› #3421  [deps-bot]  chore(deps): bump toolchain image
+     ready to enqueue
+     [dependencies]
+```
+
+```
+pull requests: all (7)
+f cycles: mine · bots · all
+
+› #3424  refactor(auth): drop legacy fallback
+     unmergeable inside the merge group
+     position 2, eta 55m18s · clean against main, so rebasing will not help
+     [area/auth]
+  #3426  feat(api): paginate list endpoints
+     unmergeable, cause not yet known
+     position 4, eta 21m0s · GitHub has not computed mergeability against main
+  #3427  fix(store): close rows on the error path
+     ready to enqueue
+     shares files with #3425, #3424 in the queue
+     [area/store] [skip-e2e]
+  #3423  fix(api): resolve location at create time
+     review required
+  #3418  chore(build): use hardened base images
+     draft
+  #3421  [deps-bot]  chore(deps): bump toolchain image
+     ready to enqueue
+     [dependencies]
+  #3425  [bob]  chore(infra): bump agent version
+     ready to enqueue
+     shares files with #3424 in the queue
+     [area/infra]
+```
+
 Both panes list each pull request's labels under it, in magenta. Labels are worth
 seeing next to the queue because repositories use them to steer CI — a
 `skip-something` label means the entry ahead of you is not running the job you
@@ -117,6 +195,30 @@ identically. The tool tells them apart from `mergeable`:
 | `unmergeable: conflicts with <base>` | genuinely conflicts with the base branch | rebase, then re-queue |
 | `unmergeable inside the merge group` | clean against the base; the problem is the merge group — a conflict with a pull request ahead of you, or its checks failing | rebasing changes nothing; wait for the entries ahead to land |
 | `unmergeable, cause not yet known` | GitHub has not computed mergeability yet | wait a poll |
+
+The second and third rows, plus the overlap hint on a pull request not queued
+yet:
+
+```
+pull requests: mine (5)
+f cycles: mine · bots · all
+
+› #3424  refactor(auth): drop legacy fallback
+     unmergeable inside the merge group
+     position 2, eta 55m18s · clean against main, so rebasing will not help
+     [area/auth]
+  #3426  feat(api): paginate list endpoints
+     unmergeable, cause not yet known
+     position 4, eta 21m0s · GitHub has not computed mergeability against main
+  #3427  fix(store): close rows on the error path
+     ready to enqueue
+     shares files with #3425, #3424 in the queue
+     [area/store] [skip-e2e]
+  #3423  fix(api): resolve location at create time
+     review required
+  #3418  chore(build): use hardened base images
+     draft
+```
 
 The middle row is the one that wastes time. The merge group is a temporary branch
 of base + every queued pull request ahead of yours + yours. If the conflict is
