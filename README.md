@@ -243,7 +243,43 @@ for. File lists are also capped at 100 paths per pull request by the API.
 
 A desktop notification fires when one of your pull requests changes into a state
 worth acting on. It notifies on a *change*, not on every poll, and stays silent
-on the first poll so starting the tool does not produce a burst.
+on the first poll so starting the tool does not produce a burst. Every
+notification also rings the terminal bell.
+
+### macOS
+
+Install [`terminal-notifier`][tn]. It posts from a real app bundle instead of
+borrowing Script Editor's identity, carries mqw's icon, and reuses one
+notification slot per repo rather than stacking a new banner for every state
+change:
+
+```
+brew install terminal-notifier
+```
+
+Installing it is not enough. macOS asks for notification permission the first
+time it runs, and once that prompt has been dismissed or denied every later call
+exits with `Notifications are turned off for this application`. Grant it under
+**System Settings > Notifications**, or reset the prompt so it can be asked
+again:
+
+```
+tccutil reset UserNotification fr.julienxx.oss.terminal-notifier
+```
+
+That first call blocks for around twenty seconds while the prompt is up, which is
+why mqw raises notifications off the render loop — otherwise the whole dashboard
+would freeze waiting on it.
+
+Without `terminal-notifier` mqw falls back to `osascript`. The notification still
+arrives, but macOS credits it to Script Editor and there is no grouping.
+
+### Linux
+
+Notifications go over D-Bus, falling back to `notify-send` and then `kdialog`. A
+normal desktop session needs no extra install.
+
+[tn]: https://github.com/julienXX/terminal-notifier
 
 ## Multiple GitHub accounts
 

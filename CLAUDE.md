@@ -99,8 +99,11 @@ the workflow's `GITHUB_TOKEN` cannot write to another repository.
   from either. Note the schema asymmetry: `enqueuePullRequest` takes
   `pullRequestId`, `dequeuePullRequest` takes `id`.
 - `main.go` — flags, `classify`, the bubbletea model, and the two-pane view.
-- `notify.go` — desktop notification and terminal bell. Failures are swallowed on
-  purpose; a missing notifier must not kill the dashboard.
+- `notify.go` — desktop notification and terminal bell, over `gen2brain/beeep`
+  (macOS: terminal-notifier, else osascript; Linux: D-Bus, else notify-send).
+  Failures are swallowed on purpose; a missing notifier must not kill the
+  dashboard. Note that beeep only reaches terminal-notifier when it is handed a
+  real PNG — with an empty icon the macOS path always degrades to osascript.
 - `config.go` — the TOML settings file and flag/config merge (`resolve`).
 - Tests: `classify_test.go` (state machine and fixtures), `config_test.go`,
   `github_test.go` (the gh
@@ -129,10 +132,10 @@ them, and keep them restored through `t.Cleanup`.
   GraphQL query text, so one fake answers the search, queue and mutation calls
   differently. This covers the real exec and error handling rather than stubbing
   the fetch functions.
-- `notifier` in `notify.go` wraps `notify`. Tests swap in a recorder; without it
+- `notifier` in `notify.go` wraps `raise`. Tests swap in a recorder; without it
   every `go test` fires real desktop notifications.
 
-Coverage sits around 89%. `main()` and `notify()` are the meaningful gaps, being
+Coverage sits around 89%. `main()` and `raise()` are the meaningful gaps, being
 process entry and OS I/O.
 
 ## Running against a work repo
