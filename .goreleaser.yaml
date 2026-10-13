@@ -61,15 +61,18 @@ homebrew_casks:
     dependencies:
       - formula: gh
     # Clear the quarantine flag, or macOS Gatekeeper blocks the unsigned binary.
-    hooks:
-      post:
-        install: |
-          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/mqw"]
-          end
-    uninstall:
-      delete:
-        - "#{staged_path}/mqw"
+    # Homebrew deprecated `postflight do` blocks for `postflight_steps`, which
+    # `hooks.post.install` cannot emit, so it goes in as a custom block. The
+    # Homebrew token `{{staged_path}}` is escaped from GoReleaser's templating.
+    custom_block: |
+      on_macos do
+        postflight_steps do
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ "{{staged_path}}" }}/mqw"], must_succeed: false
+        end
+      end
+    # No `uninstall: delete:` for the binary: Homebrew already removes the
+    # Caskroom, and `delete` always runs through sudo, so it prompted for a
+    # password on every upgrade.
     caveats: |
       mqw needs the gh CLI authenticated:
         gh auth login
