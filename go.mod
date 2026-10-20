@@ -8,7 +8,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/BurntSushi/toml v1.6.0
 	github.com/charmbracelet/x/ansi v0.11.9
-	github.com/gen2brain/beeep v0.11.2
+	github.com/gen2brain/beeep v0.11.3
 )
 
 require (
